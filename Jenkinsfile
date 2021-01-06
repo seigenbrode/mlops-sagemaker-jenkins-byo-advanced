@@ -57,14 +57,14 @@ pipeline {
               sh """
                if ! aws cloudformation describe-stacks --region us-east-1 --stack-name '${params.SAGEMAKER_TRAINING_JOB}'-test ; then
                   echo -e "\nStack does not exist, creating ..."
-                  aws cloudformation create-stack --region us-east-1 --stack-name '${params.SAGEMAKER_TRAINING_JOB}'-test --template-body file://deploy/cfn-sagemaker-endpoint.yml --parameters  ParameterKey=ModelName,ParameterValue=\"${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\" ParameterKey=ModelDataUrl,ParameterValue=\"${S3_MODEL_ARTIFACTS}/${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\"/output/model.tar.gz ParameterKey=TrainingImage,ParameterValue="${params.ECRURI}:${env.BUILD_ID}" ParameterKey=InstanceType,ParameterValue='ml.t2.large'  ParameterKey=InstanceCount,ParameterValue='1' ParameterKey=RoleArn,ParameterValue="${params.SAGEMAKER_EXECUTION_ROLE_TEST}" ParameterKey=Environment,ParameterValue='Test' ParameterKey=DataCaptureS3Bucket,ParameterValue="${params.SAGEMAKER_MM_BUCKET}"
+                  aws cloudformation create-stack --region us-east-1 --stack-name '${params.SAGEMAKER_TRAINING_JOB}'-test --template-body file://deploy/cfn-sagemaker-endpoint.yml --parameters  ParameterKey=ModelName,ParameterValue=\"${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\" ParameterKey=ModelDataUrl,ParameterValue=\"${S3_MODEL_ARTIFACTS}/${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\"/output/model.tar.gz ParameterKey=TrainingImage,ParameterValue="${params.ECRURI}:${env.BUILD_ID}" ParameterKey=InstanceType,ParameterValue='ml.t2.large'  ParameterKey=InstanceCount,ParameterValue='1' ParameterKey=RoleArn,ParameterValue="${params.SAGEMAKER_EXECUTION_ROLE_TEST}" ParameterKey=Environment,ParameterValue='Test' ParameterKey=DataCaptureS3Bucket,ParameterValue="${params.SAGEMAKER_MM_BUCKET}/data-capture-test"
                   echo "Waiting for stack to be created ..."
                   aws cloudformation wait stack-create-complete --region us-east-1 --stack-name "${params.SAGEMAKER_TRAINING_JOB}"-test
                else
                   echo -e '\nStack exists, attempting update ...'
                   set +e
                   update_output=`aws cloudformation update-stack --region us-east-1 --stack-name '${params.SAGEMAKER_TRAINING_JOB}'-test --template-body file://deploy/cfn-sagemaker-endpoint.yml --parameters  ParameterKey=ModelName,ParameterValue=\"${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\" ParameterKey=ModelDataUrl,ParameterValue=\"${S3_MODEL_ARTIFACTS}/${params.SAGEMAKER_TRAINING_JOB}-${env.BUILD_ID}\"/output/model.tar.gz ParameterKey=TrainingImage,ParameterValue="${params.ECRURI}:${env.BUILD_ID}" ParameterKey=InstanceType,ParameterValue='ml.t2.large'  ParameterKey=InstanceCount,ParameterValue='1' ParameterKey=RoleArn,ParameterValue="${params.SAGEMAKER_EXECUTION_ROLE_TEST}" ParameterKey=Environment,ParameterValue='Test'
-                  ParameterKey=DataCaptureS3Bucket,ParameterValue=\"${params.SAGEMAKER_MM_BUCKET}\"/data-capture-test
+                  ParameterKey=DataCaptureS3Bucket,ParameterValue=\"${params.SAGEMAKER_MM_BUCKET}\"/data-capture-test`
                   status=\$?
                   set -e
                   echo \$update_output
