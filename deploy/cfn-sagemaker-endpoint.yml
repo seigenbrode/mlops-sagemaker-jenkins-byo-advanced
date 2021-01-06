@@ -58,15 +58,13 @@ Resources:
     Type: "AWS::SageMaker::EndpointConfig"
     Properties:
       DataCaptureConfig:
-        -
-          CaptureOptions:
-            - Input
-            - Output
+          EnableCapture:
+             - 'true'
+             - 'false'
           DestinationS3Uri: 
             Fn::Join:
               - ""
               - - !Ref DataCaptureS3Bucket
-          EnableCapture: true
           InitialSamplingPercentage: 100
       ProductionVariants: 
         -
