@@ -58,14 +58,20 @@ Resources:
     Type: "AWS::SageMaker::EndpointConfig"
     Properties:
       DataCaptureConfig:
-          EnableCapture:
-             - 'true'
-             - 'false'
-          DestinationS3Uri: 
-            Fn::Join:
-              - ""
-              - - !Ref DataCaptureS3Bucket
-          InitialSamplingPercentage: 100
+        CaptureContentTypeHeader:
+          CsvContentTypes:
+            - "text/csv"
+          JsonContentTypes:
+            - "application/json"
+        CaptureOptions:
+          - CaptureMode: Input
+          - CaptureMode: Output
+        DestinationS3Uri: 
+          Fn::Join:
+            - ""
+            - - !Ref DataCaptureS3Bucket
+        InitialSamplingPercentage: 100
+        EnableCapture: True
       ProductionVariants: 
         -
           ModelName: !GetAtt Model.ModelName
