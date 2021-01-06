@@ -23,6 +23,9 @@ Parameters:
   Environment:
     Description: Environment
     Type: String
+  DataCaptureS3Bucket:
+    Description: S3 Bucket for model monitor captured inference data 
+    Type: String  
 
 Resources:
   Model:
@@ -54,6 +57,17 @@ Resources:
   EndpointConfig:
     Type: "AWS::SageMaker::EndpointConfig"
     Properties:
+      DataCaptureConfig:
+        -
+          CaptureOptions:
+            - Input
+            - Output
+          DestinationS3Uri: 
+            Fn::Join:
+              - ""
+              - - !Ref DataCaptureS3Bucket
+          EnableCapture: true
+          InitialSamplingPercentage: 100
       ProductionVariants: 
         -
           ModelName: !GetAtt Model.ModelName
