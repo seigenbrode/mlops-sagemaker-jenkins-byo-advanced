@@ -26,7 +26,7 @@ Parameters:
   DataCaptureS3Bucket:
     Description: S3 Bucket for model monitor data 
     Type: String
-   TrainingJobName: 
+  TrainingJobName: 
     Description: Training Job Name 
     Type: String 
 
@@ -78,16 +78,16 @@ Resources:
           InstanceType: !Ref InstanceType
           InitialVariantWeight: 1.0
 
-    MonitoringSchedule:
-      Type: Custom::MonitoringSchedule
-      Properties:
-        ServiceToken: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:MLOps-MonitoringSchedule"
-        EndpointName: !GetAtt Endpoint.EndpointName
-        ScheduleName: !Sub mlops-${ModelName}-${TrainingJobName}
-        BaselineConstraintsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/constraints.json
-        BaselineStatisticsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/statistics.json
-        OutputS3URI: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
-        PassRoleArn: !Ref RoleArn
+  MonitoringSchedule:
+    Type: Custom::MonitoringSchedule
+    Properties:
+      ServiceToken: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:MLOps-MonitoringSchedule"
+      EndpointName: !GetAtt Endpoint.EndpointName
+      ScheduleName: !Sub mlops-${ModelName}-${TrainingJobName}
+      BaselineConstraintsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/constraints.json
+      BaselineStatisticsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/statistics.json
+      OutputS3URI: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
+      PassRoleArn: !Ref RoleArn
 
 Outputs:
   EndpointId:
