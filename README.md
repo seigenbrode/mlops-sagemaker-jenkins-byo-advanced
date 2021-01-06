@@ -34,7 +34,7 @@ The stages above are broken out into:
 
 **BaselineModel:** Execute a SageMaker Processing job that performs a baseline of model training data using an AWS provided container image as part of SageMaker Model Monitor. 
 
-**DeployToProd:** Package model, configure model production endpoint, and deploy production endpoint using Amazon SageMaker Hosting Instances 
+**DeployToProd:** Package model, configure model production endpoint, and deploy production endpoint using Amazon SageMaker Hosting Instances.  This step also setups up the monitoring schedule for our Model Monitor.
 
 *Note: For this workshop, we are deploying to 2 environments (Test/Production). In reality, this number will vary depending on your environment and the workload.*
 
