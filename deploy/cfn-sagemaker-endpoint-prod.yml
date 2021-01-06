@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ModelName:
+    Description: Model name
+    Type: String
+  ModelDataUrl:
+    Description: Location of model artifact
+    Type: String
+  TrainingImage:
+    Description: The container used to train the model
+    Type: String
+  InstanceType:
+    Description: Instance type
+    Type: String
+    Default: ml.t2.medium
+  InstanceCount:
+    Description: Instance count
+    Type: String
+    Default: 1
+  RoleArn:
+    Description: Execution Role ARN
+    Type: String
+  Environment:
+    Description: Environment
+    Type: String
+  DataCaptureS3Bucket:
+    Description: S3 Bucket for model monitor data 
+    Type: String
+   TrainingJobName: 
+    Description: Training Job Name 
+    Type: String 
+
+Resources:
+  Model:
+    Type: "AWS::SageMaker::Model"
+    Properties: 
+      Containers: 
+        - 
+         Image: !Ref TrainingImage
+         ModelDataUrl: !Ref ModelDataUrl
+         Environment: {"SAGEMAKER_ENABLE_CLOUDWATCH_METRICS": "true", "SAGEMAKER_PROGRAM":"train_and_deploy.py", "SAGEMAKER_SUBMIT_DIRECTORY":"s3://sagemaker-us-east-1-980714697697/sagemaker-scikit-learn-2020-10-19-15-55-56-882/source/sourcedir.tar.gz"}
+      ExecutionRoleArn: !Ref RoleArn
+      ModelName: 
+        Fn::Join:
+          - ""
+          - - !Ref ModelName
+            - "-"
+            - !Ref Environment
+ 
+  Endpoint:
+    Type: "AWS::SageMaker::Endpoint"
+    Properties: 
+      EndpointConfigName: !GetAtt EndpointConfig.EndpointConfigName
+ 
+  EndpointConfig:
+    Type: "AWS::SageMaker::EndpointConfig"
+    Properties:
+      DataCaptureConfig:
+        CaptureContentTypeHeader:
+          CsvContentTypes:
+            - "text/csv"
+          JsonContentTypes:
+            - "application/json"
+        CaptureOptions:
+          - CaptureMode: Input
+          - CaptureMode: Output
+        DestinationS3Uri: 
+          Fn::Join:
+            - ""
+            - - !Ref DataCaptureS3Bucket
+        InitialSamplingPercentage: 100
+        EnableCapture: True
+      ProductionVariants: 
+        -
+          ModelName: !GetAtt Model.ModelName
+          VariantName: variant-1
+          InitialInstanceCount: !Ref InstanceCount
+          InstanceType: !Ref InstanceType
+          InitialVariantWeight: 1.0
+
+    MonitoringSchedule:
+      Type: Custom::MonitoringSchedule
+      Properties:
+        ServiceToken: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:MLOps-MonitoringSchedule"
+        EndpointName: !GetAtt Endpoint.EndpointName
+        ScheduleName: !Sub mlops-${ModelName}-${TrainingJobName}
+        BaselineConstraintsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/constraints.json
+        BaselineStatisticsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/statistics.json
+        OutputS3URI: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
+        PassRoleArn: !Ref RoleArn
+
+Outputs:
+  EndpointId:
+    Value: !Ref Endpoint
+  EndpointName:
+    Value: !GetAtt Endpoint.EndpointName
