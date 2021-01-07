@@ -354,7 +354,7 @@ Jenkins allows for the abiliity to create additional pipeline triggers and embed
 1) From your AWS Account, go to **Services**-->**Amazon SageMaker**
 
 2) Select **Notebook --> Notebook Instances** from the menu on the left
-3) Select **Open Jupyter** next to the `Workshop-Shared-Notebook` instance
+3) Select **Open Jupyter** next to the `Jenkins-Shared-Notebook` instance
 
 ![BYO Workshop Setup](images/SharedNotebook.png)
 
