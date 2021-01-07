@@ -79,16 +79,34 @@ Resources:
           InitialVariantWeight: 1.0
 
   MonitoringSchedule:
-    Type: Custom::MonitoringSchedule
+    Type: AWS::SageMaker::MonitoringSchedule
     Properties:
-      ServiceToken: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:MLOps-MonitoringSchedule"
       EndpointName: !GetAtt Endpoint.EndpointName
-      ScheduleName: !Sub mlops-${ModelName}-${TrainingJobName}
-      BaselineConstraintsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/constraints.json
-      BaselineStatisticsUri: !Sub s3://${DataCaptureS3Bucket}/baseline/statistics.json
-      OutputS3URI: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
-      PassRoleArn: !Ref RoleArn
-
+      MonitoringScheduleConfig:
+        MonitoringJobDefinition:
+          BaselineConfig:
+            ConstraintsResource:
+              S3Uri: !Sub s3://${DataCaptureS3Bucket}/baseline/constraints.json
+            StatisticsResource:
+              S3Uri: !Sub s3://${DataCaptureS3Bucket}/baseline/statistics.json
+          MonitoringAppSpecification:
+            ImageUri: '156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer'
+          MonitoringInputs:
+            - EndpointInput:
+                EndpointName: !GetAtt Endpoint.EndpointName
+                LocalPath: "/opt/ml/processing/endpointdata"
+          MonitoringOutputConfig:
+            MonitoringOutputs:
+              - S3Output:
+                  LocalPath: "/opt/ml/processing/localpath"
+                  S3Uri: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
+          RoleArn: !Ref RoleArn
+        MonitoringJobDefinitionName: !Sub mlops-${ModelName}
+        MonitoringType: DataQuality
+        ScheduleConfig:  
+          ScheduleExpression: 'Hourly: cron(0 * ? * * *)'
+      MonitoringScheduleName: !Sub mlops-${ModelName}
+  
 Outputs:
   EndpointId:
     Value: !Ref Endpoint
