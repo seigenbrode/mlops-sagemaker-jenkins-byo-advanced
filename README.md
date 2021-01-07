@@ -1,7 +1,7 @@
 
 # MLOps using Jenkins: Amazon SageMaker Bring-Your-Own-Algorithm with Model Monitor Drift Detection
 
-In this workshop, we will focus on building a pipeline to train and deploy a model using Amazon SageMaker training instances and hosting on persistent Sagemaker endpoint instance(s).  In this workshop, we will also setup Amazon SageMaker Model Monitor for data drift detection.  The orhestration of the training, model monitor setup, and deployment tasks will be done through [Jenkins](https://www.jenkins.io/).  
+In this workshop, we will focus on building a pipeline to train and deploy a model using Amazon SageMaker training instances and hosting on persistent Sagemaker endpoint instance(s).  In this workshop, we will also setup Amazon SageMaker Model Monitor for data drift detection.  The orchestration of the training, model monitor setup, and deployment tasks will be done through [Jenkins](https://www.jenkins.io/).  
 
 
 Applying DevOps practices to Machine Learning (ML) workloads is a fundamental practice to ensure machine learning workloads are deployed using a consistent methodology with traceability, consistenc, governance and quality gates. MLOps involves applying practices such as CI/CD,Continuous Monitoring, and Feedback Loops to the Machine Learning Development Lifecycle. This workshop will focus primarily on setting up a base deployment pipeline in Jenkins.  The expectation would be to continue to iterate on a base pipeline to include more quality checks and pipeline features including the consideration for an data worflow pipeline.  
@@ -93,7 +93,9 @@ In this workshop, we are using Jenkins as the Docker build server; however, you 
 
 ## Step 2: Create Model Artifact Repository
 
-Create the S3 bucket that we will use as our packaged model artifact repository.  Once our SageMaker training job completes successfully, a new deployable model artifact will be PUT to this bucket. In this lab, we version our artifacts using the consistent naming of the build pipeline ID.  However, you can optionally enable versioning on the S3 bucket as well.  
+Create the S3 bucket that we will use as our packaged model artifact repository.  Once our SageMaker training job completes successfully, a new deployable model artifact will be PUT to this bucket. In this lab, we version our artifacts using the consistent naming of the build pipeline ID.  However, you can optionally enable versioning on the S3 bucket as well. 
+
+**NOTE:** If you created an S3 bucket from the mlops-sagemakee
 
 1) From your AWS Account, go to **Services**-->**S3**
 
