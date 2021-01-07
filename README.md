@@ -93,9 +93,10 @@ In this workshop, we are using Jenkins as the Docker build server; however, you 
 
 ## Step 2: Create Model Artifact Repository
 
+**NOTE:** *If you created an S3 bucket from the mlops-sagemaker-jenkins-byo lab you can utilize that same bucket and skip this step.*
+
 Create the S3 bucket that we will use as our packaged model artifact repository.  Once our SageMaker training job completes successfully, a new deployable model artifact will be PUT to this bucket. In this lab, we version our artifacts using the consistent naming of the build pipeline ID.  However, you can optionally enable versioning on the S3 bucket as well. 
 
-**NOTE:** If you created an S3 bucket from the mlops-sagemakee
 
 1) From your AWS Account, go to **Services**-->**S3**
 
@@ -109,7 +110,30 @@ Create the S3 bucket that we will use as our packaged model artifact repository.
 
    * Leave all other settings as default, click **Create bucket**
 
-## Step 3: Create SageMaker Execution Role
+## Step 3: Create Model Monitor S3 Bucket
+
+Create the S3 bucket that we will for our model monitoring activities including:
+  * Storing baseline statistics and constraints data
+  * Capturing prediction request and response data
+  * Collecting monitoring reports from the monitoring schedule.  
+  
+For simplicity in the lab environment, we will use one bucket for everything above.  You may choose to separate in your own implementaton.  
+
+1) From your AWS Account, go to **Services**-->**S3**
+
+2) Click  **Create bucket**
+
+3) Under **Create Bucket / General Configuration**:
+ 
+   * **Bucket name:** *yourinitials*-jenkins-scikitbyo-modelmonitor
+     
+      *Example: jd-jenkins-scikitbyo-modelmonitor*
+
+   * Leave all other settings as default, click **Create bucket**
+
+## Step 4: Create SageMaker Execution Role
+
+**NOTE:** *If you created a SageMaker Execution Role from the mlops-sagemaker-jenkins-byo lab you can utilize that same Role and skip this step.*
 
 Create the IAM Role we will use for executing SageMaker calls from our Jenkins pipeline  
 
@@ -140,7 +164,7 @@ Create the IAM Role we will use for executing SageMaker calls from our Jenkins p
 
 *Note: In a real world scenario, we would want to limit these privileges significantly to only the privileges needed.  This is only done for simplicity in the workshop.*
 
-## Step 4: Explore Lambda Helper Functions
+## Step 5: Explore Lambda Helper Functions
 
 In this step, we'll explore the Lambda Helper Functions that were created to facilitate the integration of SageMaker training and deployment into a Jenkins pipeline:
 
@@ -149,9 +173,9 @@ In this step, we'll explore the Lambda Helper Functions that were created to fac
 
 The description of each Lambda function is included below:
 
--	**MLOps-CheckTrainingStatus:**  This Lambda function is called from the pipeline and responsible for checking back in on the status of the previous call to create and execute a training job.  This is in place because while we may get a successful reesponse back immediately on our Create Training Job request, that response indicates the request for training was successfully submitted.  It does not mean training executed successfully so we need to include additional logic to check back in on the status of the training job until the job fails ('Failed') or succeeds ('Completed').  We only want out pipeline to proceed when the training step completes successfully. 
 -	**MLOps-InvokeEndpoint-scikitbyo:** This Lambda function is triggered during our "Smoke Test" stage in the pipeline where we are checking to ensure that our inference code is in sync with our training code by running a few sample requests for prediction to the deployed test endpoint.  We are running this step before committing our newly trained model to a higher level environment.  
 
+-  **MLOps-ModelMonitor-Baseline:** This lambda function executes a SageMaker Process Job using a pre-built AWS own/managed container image supporting SageMaker Model Monitor capabilities.  This lambda accepts the training data used as input to perform statistical analysis on each feature as well as identify constraints used to detect data drift.  The output of this lambda function is a statistics.json and constraints.json file uploaded to S3.   
 
 *Note: While the Lambda functions above have been predeployed in our AWS Account, they are also included in the /lambdas folder of this repo if you want to deploy them following this workshop into your own AWS Accounts.  A  [CloudFormation](https://aws.amazon.com/cloudformation/) template is also included as well to depoy using the [AWS Serverless Application Model](https://aws.amazon.com/serverless/sam/)
 
@@ -169,21 +193,23 @@ In this step, we will create a new pipeline that we'll use to:
 
    4) Train our model using Amazon SageMaker Training Instances
     
-   5) Deploy our model to a Test endpoint using Amazon SageMaker Hosting Instances 
+   5) Deploy our model to a Test endpoint using AWS CloudFormation to deploy to Amazon SageMaker Hosting Instances 
 
    6) Execute a smoke test to ensure our training and inference code are in sync
 
-   7) Deploy our model to a Production endpoint using Amazon SageMaker Hosting Instances
+   7) Baseline the data used to train the model for model monitoring to detect data drift
 
-## Step 5: Configure the Jenkins Pipeline
+   8) Deploy our model to a Production endpoint using AWS CloudFormation to deploy to Amazon SageMaker Hosting Instances
+
+## Step 6: Configure the Jenkins Pipeline
 
 1) Login Jenkins portal using the information provided by your instructors
 
 2) From the left menu, choose **New Item** 
 
-3) **Enter Item Name:** sagemaker-byo-pipeline-*yourinitials* 
+3) **Enter Item Name:** sagemaker-byo-pipeline-advanced-*yourinitials* 
 
-    *Example: sagemaker-byo-pipeline-jd
+    *Example: sagemaker-byo-pipeline-advanced-jd
 
 4) Choose **Pipeline**, click **OK**
 
@@ -224,27 +250,27 @@ In this step, we will create a new pipeline that we'll use to:
        - **Name:** S3_MODEL_ARTIFACTS
        - **Default Value:** *Enter the bucket we created above in the format: s3://*initials*-jenkins-scikitbyo-modelartifact
 
-  * Parameter #5: Training Job Name 
+   * Parameter #5: Training Job Name 
        - **Type:** String
        - **Name:** SAGEMAKER_TRAINING_JOB
        - **Default Value:** scikit-byo-*yourinitials*
 
-  * Parameter #6: Lambda Function - Training Status 
+   * Parameter #6: Lambda Function - Training Status 
        - **Type:** String
        - **Name:** LAMBDA_CHECK_STATUS_TRAINING
        - **Default Value:** MLOps-CheckTrainingStatus
 
-  * Parameter #7: S3 Bucket w/ Training Data
+   * Parameter #7: S3 Bucket w/ Training Data
        - **Type:** String
        - **Name:** S3_TRAIN_DATA
        - **Default Value:** s3://0.model-training-data/train/train.csv     
 
-   * Parameter #8: S3 Bucket w/ Training Data
+    * Parameter #8: S3 Bucket w/ Training Data
        - **Type:** String
        - **Name:** S3_TEST_DATA
        - **Default Value:** 0.model-training-data    
 
-   * Parameter #9: Lambda Function - Smoke Test
+    * Parameter #9: Lambda Function - Smoke Test
        - **Type:** String
        - **Name:** LAMBDA_EVALUATE_MODEL
        - **Default Value:** MLOps-InvokeEndpoint-scikitbyo
@@ -253,7 +279,16 @@ In this step, we will create a new pipeline that we'll use to:
        - **Type:** String
        - **Name:** JENKINSHOME
        - **Default Value:** /bitnami/jenkins/jenkins_home/.docker
-   
+
+    * Parameter #11: SageMaker Model Monitor Processing Image
+       - **Type:** String
+       - **Name:** MMBASELINE_ECRURI
+       - **Default Value:** 156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer
+
+    * Parameter #12: SageMaker Model Monitor Processing Image
+       - **Type:** String
+       - **Name:** LAMBDA_BASELINE_MODEL
+       - **Default Value:** MLOps-ModelMonitor-Baseline   
 
 5) Scroll down --> Under **Build Triggers** tab: 
 
@@ -265,7 +300,7 @@ In this step, we will create a new pipeline that we'll use to:
 
    * **SCM:** Select **Git** from dropdown
 
-   * **Repository URL:** https://github.com/seigenbrode/byo-scenario
+   * **Repository URL:** https://github.com/seigenbrode/mlops-sagemaker-jenkins-byo-advanced
 
    * **Credentials:** -none- *We are pulling from a public repo* 
 
@@ -309,9 +344,14 @@ Jenkins allows for the abiliity to create additional pipeline triggers and embed
 
 7. When the pipeline has completed the **TrainStatus** stage, the model has been trained and you will be able to find your deployable model artifact in the S3 bucket we created earlier.  Go To [S3](https://s3.console.aws.amazon.com/s3/home?region=us-east-1) and find your bucket to view your model artifact: *yourinitials*-jenkins-scitkitbyo-modelartifact
 
-8. When the pipeline has completed, the model that was trained once is deployed to test, run through a smoke test, and deploy to production.  Go to [Amazon SageMaker Endpoints](https://console.aws.amazon.com/sagemaker/home?region=us-east-1#/endpoints) to check out your endpoints.  
+8. After the model has been trained and a quick evaluation is done with a limited test data set to ensure training and inference code are in sync, the **BaselineModel** step will run to create our baseline for model monitor. The SageMaker notebook instance in the next step will walk through more details on the Model Monitor configuration & setup. 
+
+9. After the model has been deployed to production,you can go to [Amazon SageMaker Endpoints](https://console.aws.amazon.com/sagemaker/home?region=us-east-1#/endpoints) to check out your endpoints.  You can also go check out the [CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks) that were used to configure and deploy the endpoints using Infrastructure-as-Code
 
 ![BYO Workshop Setup](images/SageMaker-Endpoints.png)
+
+## Step 7: Exploring SageMake Model Monitor Setup
+
 
 **CONGRATULATIONS!** 
 
