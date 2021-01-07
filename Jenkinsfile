@@ -14,7 +14,7 @@ pipeline {
             }
         }
 
-        stage("BuildPushContainer") {
+        stage("BuildContainer") {
             steps {
               sh """
                 echo "${params.ECRURI}"

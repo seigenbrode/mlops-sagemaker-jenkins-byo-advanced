@@ -100,6 +100,11 @@ Resources:
               - S3Output:
                   LocalPath: "/opt/ml/processing/localpath"
                   S3Uri: !Sub s3://${DataCaptureS3Bucket}/monitoring/reports
+          MonitoringResources:
+            ClusterConfig: 
+                InstanceCount: 1
+                InstanceType: ml.m5.xlarge
+                VolumeSizeInGB: 30   
           RoleArn: !Ref RoleArn
         MonitoringJobDefinitionName: !Sub mlops-${ModelName}
         MonitoringType: DataQuality
