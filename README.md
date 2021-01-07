@@ -16,7 +16,7 @@ Applying DevOps practices to Machine Learning (ML) workloads is a fundamental pr
 
 For this portion of the workshop, we will be building the following pipeline:  
 
-![BYO Workshop Setup](images/Jenkins-Pipeline.png)
+![BYO Workshop Setup](images/AdvancePipeline.png)
 
 The stages above are broken out into:
 
@@ -35,6 +35,10 @@ The stages above are broken out into:
 **BaselineModel:** Execute a SageMaker Processing job that performs a baseline of model training data using an AWS provided container image as part of SageMaker Model Monitor. 
 
 **DeployToProd:** Package model, configure model production endpoint, and deploy production endpoint using Amazon SageMaker Hosting Instances.  This step also setups up the monitoring schedule for our Model Monitor.
+
+The architecture used for this pipeline relies on Jenkins for orchestrating the tasks using Amazon SageMaker for the compute and features required for training, deploying, and monitoring the workload. 
+
+![BYO Workshop Setup](images/mlops-jenkins-Advanced-lab.png)
 
 *Note: For this workshop, we are deploying to 2 environments (Test/Production). In reality, this number will vary depending on your environment and the workload.*
 
@@ -72,6 +76,8 @@ The steps below are included for the setup of AWS resources we will be using in 
 
 ## Step 1: Create Elastic Container Registry (ECR)
 
+**NOTE:** *If you created an ECR repository from the mlops-sagemaker-jenkins-byo lab you can utilize that same repository and skip this step.*
+
 In this workshop, we are using Jenkins as the Docker build server; however, you can also choose to use a secondary build environment such as [AWS Code Build](https://aws.amazon.com/codebuild) as a managed build environment that also integrates with other orchestration tools such as Jenkins. Below we are creating an Elastic Container Registry (ECR) where we will push our built docker images.   
 
 1) Login to the AWS Account provided: https://console.aws.amazon.com
@@ -84,7 +90,6 @@ In this workshop, we are using Jenkins as the Docker build server; however, you 
 
    * For **Repository name**: Enter a name (ex. jenkins-byo-scikit-janedoe)
    * Toggle the **Image scan settings** to **Enabled**  (*This will allow for automatic vulnerability scans against images we push to this repository*)
-
 
 ![BYO Workshop Setup](images/ECR-Repo.png)
 
@@ -131,6 +136,7 @@ For simplicity in the lab environment, we will use one bucket for everything abo
 
    * Leave all other settings as default, click **Create bucket**
 
+
 ## Step 4: Create SageMaker Execution Role
 
 **NOTE:** *If you created a SageMaker Execution Role from the mlops-sagemaker-jenkins-byo lab you can utilize that same Role and skip this step.*
@@ -156,7 +162,7 @@ Create the IAM Role we will use for executing SageMaker calls from our Jenkins p
 
 9) You will receive a notice the role has been created, click on the link and make sure grab the arn for the role we just created as we will use it later. 
 
-![BYO Workshop Setup](images/SageMaker-IAM.png)
+![BYO Workshop Setup](images/SageMaker-IAM.png) 
 
 10) We want to ensure we have access to S3 as well, so under the **Permissions** tab, click **Attach policies**
 
@@ -177,7 +183,7 @@ The description of each Lambda function is included below:
 
 -  **MLOps-ModelMonitor-Baseline:** This lambda function executes a SageMaker Process Job using a pre-built AWS own/managed container image supporting SageMaker Model Monitor capabilities.  This lambda accepts the training data used as input to perform statistical analysis on each feature as well as identify constraints used to detect data drift.  The output of this lambda function is a statistics.json and constraints.json file uploaded to S3.   
 
-*Note: While the Lambda functions above have been predeployed in our AWS Account, they are also included in the /lambdas folder of this repo if you want to deploy them following this workshop into your own AWS Accounts.  A  [CloudFormation](https://aws.amazon.com/cloudformation/) template is also included as well to depoy using the [AWS Serverless Application Model](https://aws.amazon.com/serverless/sam/)
+*Note: While the Lambda functions above have been predeployed in our AWS Account, they are also included in the /lambdas folder of this repo if you want to deploy them following this workshop into your own AWS Accounts.  A  [CloudFormation](https://aws.amazon.com/cloudformation/) template is also included as well to depoy using the [AWS Serverless Application Model](https://aws.amazon.com/serverless/sam/)*
 
 ---
 
@@ -199,7 +205,7 @@ In this step, we will create a new pipeline that we'll use to:
 
    7) Baseline the data used to train the model for model monitoring to detect data drift
 
-   8) Deploy our model to a Production endpoint using AWS CloudFormation to deploy to Amazon SageMaker Hosting Instances
+   8) Deploy our model to a Production endpoint using AWS CloudFormation to deploy to Amazon SageMaker Hosting Instances.  This endpoint will also be enabled for data capture to collect prediction request and response data that will be used by SageMaker Model Monitor to detect drift.
 
 ## Step 6: Configure the Jenkins Pipeline
 
@@ -213,25 +219,20 @@ In this step, we will create a new pipeline that we'll use to:
 
 4) Choose **Pipeline**, click **OK**
 
-![BYO Workshop Setup](images/Jenkins-NewItem.png)
-
 5) Under **General** tab, complete the following: 
 
 * **Description:** Enter a description for the pipeline
 
-* Select **GitHub project** & Enter the following project url: https://github.com/seigenbrode/byo-scenario
+* Select **GitHub project** & Enter the following project url: https://github.com/seigenbrode/mlops-sagemaker-jenkins-byo-advanced
 
 
-![BYO Workshop Setup](images/Jenkins-NewItem-1.png)
+![BYO Workshop Setup](images/Jenkins-Setup-1.png) 
 
 
    * Scroll Down & Select **This project is parameterized**:
       -  select **Add Parameter** --> **String Parameter**
       -  **Name**: ECRURI
-      -  **Default Value**: *Enter the ECR repository created above*
-
-![BYO Workshop Setup](images/Jenkins-NewItem-2.png)
-
+      -  **Default Value**: *Enter the ECR repository created above (or from prior lab)*
 
  * We're going to use the same process above to create the other configurable parameters we will use as input into our pipeline. Select **Add Parameter** each time to continue to add the additional parameters below: 
 
@@ -253,42 +254,43 @@ In this step, we will create a new pipeline that we'll use to:
    * Parameter #5: Training Job Name 
        - **Type:** String
        - **Name:** SAGEMAKER_TRAINING_JOB
-       - **Default Value:** scikit-byo-*yourinitials*
+       - **Default Value:** scikit-byo-advanced-*yourinitials*
 
-   * Parameter #6: Lambda Function - Training Status 
-       - **Type:** String
-       - **Name:** LAMBDA_CHECK_STATUS_TRAINING
-       - **Default Value:** MLOps-CheckTrainingStatus
-
-   * Parameter #7: S3 Bucket w/ Training Data
+   * Parameter #6: S3 Bucket w/ Training Data
        - **Type:** String
        - **Name:** S3_TRAIN_DATA
        - **Default Value:** s3://0.model-training-data/train/train.csv     
 
-    * Parameter #8: S3 Bucket w/ Training Data
+    * Parameter #7: S3 Bucket w/ Training Data
        - **Type:** String
        - **Name:** S3_TEST_DATA
        - **Default Value:** 0.model-training-data    
 
-    * Parameter #9: Lambda Function - Smoke Test
+    * Parameter #8: Lambda Function - Smoke Test
        - **Type:** String
        - **Name:** LAMBDA_EVALUATE_MODEL
        - **Default Value:** MLOps-InvokeEndpoint-scikitbyo
 
-   * Parameter #10: Default Docker Environment
+   * Parameter #9: Default Docker Environment
        - **Type:** String
        - **Name:** JENKINSHOME
        - **Default Value:** /bitnami/jenkins/jenkins_home/.docker
 
-    * Parameter #11: SageMaker Model Monitor Processing Image
+    * Parameter #10: SageMaker Model Monitor Processing Image
        - **Type:** String
        - **Name:** MMBASELINE_ECRURI
        - **Default Value:** 156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer
 
-    * Parameter #12: SageMaker Model Monitor Processing Image
+    * Parameter #11: SageMaker Model Monitor Processing Image
        - **Type:** String
        - **Name:** LAMBDA_BASELINE_MODEL
-       - **Default Value:** MLOps-ModelMonitor-Baseline   
+       - **Default Value:** MLOps-ModelMonitor-Baseline
+
+   * Parameter #12: SageMaker Model Monitor Processing Image
+       - **Type:** String
+       - **Name:** SAGEMAKER_MM_BUCKET
+       - **Default Value:** *Enter the bucket we created above in the format: s3://*initials*-jenkins-scikitbyo-modelmonitor 
+       
 
 5) Scroll down --> Under **Build Triggers** tab: 
 
@@ -303,6 +305,8 @@ In this step, we will create a new pipeline that we'll use to:
    * **Repository URL:** https://github.com/seigenbrode/mlops-sagemaker-jenkins-byo-advanced
 
    * **Credentials:** -none- *We are pulling from a public repo* 
+
+   * **Branches to build:** */main
 
    * **Script Path:** *Ensure 'Jenkinsfile' is populated*
 
@@ -320,24 +324,20 @@ Jenkins allows for the abiliity to create additional pipeline triggers and embed
 
 1. Let's trigger the first execution of our pipeline. While you're in the Jenkins Portal, select the pipeline you created above:  
 
-![BYO Workshop Setup](images/Jenkins-Pipeline-Trigger.png)
-
-2. Select **Build with Parameters** from the left menu:
-
-![BYO Workshop Setup](images/Jenkins-Pipeline-Trigger-2.png)
+2. Select **Build with Parameters** from the left menu
 
 3. You'll see all of the parameters we setup on initial configuration, you could change these values prior to a new build but we are going to leave all of our defaults, then click **Build** 
 
 4. You can monitor the progress of the build through the dashboard as well as the stages/steps being setup and executed.  An example of the initial build in progress below: 
 
-![BYO Workshop Setup](images/Jenkins-Pipeline-Trigger-3.png)
+![BYO Workshop Setup](images/AdvancePipeline2.png)
 
 
 *Note: The progress bar in the lower left under Build History will turn a solid color when the build is complete. 
 
 5. Once your pipeline completes the **BuildPushContainer** stage, you can go view your new training/inference image in the repository we setup: Go To [ECR](https://console.aws.amazon.com/ecr/repositories). Because we turned on vulnerability scanning, you can also see if your image has any vulnerabilities.  This would be a good place to put in a quality gate, stopping the build until the vulnerabilities are addressed: 
 
-![BYO Workshop Setup](images/ECR-Repo-Push.png)
+![BYO Workshop Setup](images/ECR-Repo-Push.png) 
 
 
 6. When you're pipeline reaches the **TrainModel** stage, you can checkout more details about training because we are reaching out to utilize Amazon SageMaker training instances during our training.  Go To [Amazon SageMaker Training Jobs](https://console.aws.amazon.com/sagemaker/home?region=us-east-1#/jobs).  You can click on your job and review the details of your training job, check out the monitoring metrics.  
@@ -348,17 +348,25 @@ Jenkins allows for the abiliity to create additional pipeline triggers and embed
 
 9. After the model has been deployed to production,you can go to [Amazon SageMaker Endpoints](https://console.aws.amazon.com/sagemaker/home?region=us-east-1#/endpoints) to check out your endpoints.  You can also go check out the [CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks) that were used to configure and deploy the endpoints using Infrastructure-as-Code
 
-![BYO Workshop Setup](images/SageMaker-Endpoints.png)
 
 ## Step 7: Exploring SageMake Model Monitor Setup
 
+1) From your AWS Account, go to **Services**-->**Amazon SageMaker**
+
+2) Select **Notebook --> Notebook Instances** from the menu on the left
+3) Select **Open Jupyter** next to the `Workshop-Shared-Notebook` instance
+
+![BYO Workshop Setup](images/SharedNotebook.png)
+
+4) Find the notebook that matches your user name & complete remaining steps inside your SageMaker Notebook Instance
 
 **CONGRATULATIONS!** 
 
-You've setup your base Jenkins pipeline for building your custom machine learning containers to train and host on Amazon SageMaker.  You can continue to iterate and add in more functionality including items such as: 
+You've setup your advanced Jenkins pipeline for building your custom machine learning containers to train and host on Amazon SageMaker.  You can continue to iterate and add in more functionality including items such as: 
 
  * A/B Testing 
- * Endpoint Cleanup
+ * Feature Store
+ * Model Registry
  * Additional Quality Gates
  * Retraining strategy
  * Include more sophisticated logic in the pipeline such as [Inference Pipeline](https://docs.aws.amazon.com/sagemaker/latest/dg/inference-pipelines.html), [Multi-Model Endpoint](https://docs.aws.amazon.com/sagemaker/latest/dg/multi-model-endpoints.html)
@@ -367,7 +375,7 @@ You've setup your base Jenkins pipeline for building your custom machine learnin
 
 ---
 
-## Step 5: Clean-Up
+## Step 8: Clean-Up
 
 If you are performing work in your own AWS Account, please clean up resources you will no longer use to avoid unnecessary charges. 
 
